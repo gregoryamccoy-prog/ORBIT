@@ -1,0 +1,1139 @@
+Below is a **developer-ready implementation package**: architecture, milestones, ticket breakdown, file structure, and starter code scaffolding.
+
+---
+
+# Satellite Visualization System
+
+## Developer Task Breakdown + Proposed File Structure + Starter Code
+
+---
+
+## 1. Recommended Stack
+
+**Language:** TypeScript
+**Framework:** React
+**Build Tool:** Vite
+**3D Globe Engine:** CesiumJS
+**Orbit Math / Propagation:** satellite.js
+**State Management:** Zustand
+**HTTP Client:** native `fetch`
+**Styling:** CSS modules or plain CSS
+
+### Why this stack
+
+This is the shortest path to a polished result. Cesium already solves the hard Earth-rendering problem. satellite.js handles TLE propagation. React handles the UI cleanly. TypeScript keeps the codebase from turning into garbage after the first few feature additions.
+
+---
+
+## 2. Suggested Delivery Approach
+
+Build in this order:
+
+1. **Static globe renders in Cesium**
+2. **Load a small fixed list of satellites**
+3. **Render satellites as glyphs**
+4. **Add click selection**
+5. **Show info panel**
+6. **Draw a single selected orbit track**
+7. **Add Earth-side observer mode**
+8. **Add minute-based updates**
+9. **Add textbox count limit**
+10. **Add API-backed metadata**
+11. **Optimize toward 1000 satellites**
+
+Do not start with metadata APIs or fancy imagery tweaks. Get the globe and selectable dots working first.
+
+---
+
+## 3. Epics and Tickets
+
+---
+
+## Epic A — Project Setup
+
+### Ticket A1 — Initialize Project
+
+**Goal:** Create a clean TypeScript React project using Vite.
+
+**Acceptance Criteria**
+
+* Project runs locally with `npm run dev`
+* TypeScript compiles without errors
+* Basic app shell visible
+
+---
+
+### Ticket A2 — Install Core Dependencies
+
+**Dependencies**
+
+* `react`
+* `react-dom`
+* `cesium`
+* `satellite.js`
+* `zustand`
+
+**Acceptance Criteria**
+
+* App builds successfully
+* Cesium assets load correctly
+
+---
+
+### Ticket A3 — Configure Cesium for Vite
+
+**Goal:** Ensure Cesium static assets and worker files are available.
+
+**Acceptance Criteria**
+
+* Globe renders without missing asset errors
+* No console failures for Cesium resources
+
+---
+
+## Epic B — Globe and Scene Foundation
+
+### Ticket B1 — Render Basic Cesium Globe
+
+**Goal:** Show Earth in a full-screen viewer.
+
+**Acceptance Criteria**
+
+* Earth globe visible
+* User can pan/zoom/rotate
+* Base imagery loads
+
+---
+
+### Ticket B2 — Enable Day/Night Lighting
+
+**Goal:** Earth should show solar illumination.
+
+**Acceptance Criteria**
+
+* Lit side and dark side visible
+* Lighting updates with real time
+
+---
+
+### Ticket B3 — Add Camera Presets
+
+**Goal:** Support two camera modes:
+
+* Orbital View
+* Earth-Side Observer View (Crestwood)
+
+**Acceptance Criteria**
+
+* Buttons switch between the two views
+* Camera transitions smoothly
+* Reset works reliably
+
+---
+
+## Epic C — Satellite Rendering
+
+### Ticket C1 — Load Sample Satellite Dataset
+
+**Goal:** Load a small fixed set of TLE records from a local JSON file.
+
+**Acceptance Criteria**
+
+* Dataset loads on app start
+* Data parsed into internal model
+
+---
+
+### Ticket C2 — Compute Satellite Positions
+
+**Goal:** Use satellite.js to compute current positions.
+
+**Acceptance Criteria**
+
+* Lat/lon/alt produced for satellites
+* Invalid TLEs skipped gracefully
+
+---
+
+### Ticket C3 — Render Satellite Glyphs
+
+**Goal:** Render each satellite as a colored point or billboard.
+
+**Acceptance Criteria**
+
+* Satellites visible around Earth
+* Glyph size remains reasonable across zoom levels
+* Rendering works for at least 100 objects
+
+---
+
+### Ticket C4 — Add Count Input
+
+**Goal:** User can specify number of rendered satellites.
+
+**Acceptance Criteria**
+
+* Textbox accepts numbers only
+* Minimum 1, maximum 1000 enforced
+* Rendering updates when value changes
+
+---
+
+## Epic D — Interaction
+
+### Ticket D1 — Add Satellite Selection
+
+**Goal:** Clicking a glyph selects a satellite.
+
+**Acceptance Criteria**
+
+* Selected satellite is highlighted
+* Selection updates internal state
+* Clicking empty space clears selection optionally
+
+---
+
+### Ticket D2 — Add Information Panel
+
+**Goal:** Show selected satellite metadata in a side panel.
+
+**Acceptance Criteria**
+
+* Panel displays name
+* Shows altitude and speed
+* Placeholder/fallback shown when extra metadata unavailable
+
+---
+
+### Ticket D3 — Add Orbit Track
+
+**Goal:** Draw only one orbit path at a time for selected satellite.
+
+**Acceptance Criteria**
+
+* Selecting a satellite shows its track
+* Selecting another removes old track
+* Deselecting clears track
+
+---
+
+## Epic E — Time Update and Motion
+
+### Ticket E1 — Add Minute-Based Position Refresh
+
+**Goal:** Recompute positions every 60 seconds.
+
+**Acceptance Criteria**
+
+* Satellite positions update every minute
+* App does not leak timers
+* Update works for current rendered count
+
+---
+
+### Ticket E2 — Optional Visual Interpolation
+
+**Goal:** Smooth movement between minute updates.
+
+**Acceptance Criteria**
+
+* Motion appears smoother
+* Can be disabled if performance suffers
+
+This is optional. Do not block v1 on it.
+
+---
+
+## Epic F — Metadata API
+
+### Ticket F1 — Define Metadata Service Interface
+
+**Goal:** Abstract satellite metadata fetching behind one service.
+
+**Acceptance Criteria**
+
+* UI never calls APIs directly
+* Service returns normalized model
+
+---
+
+### Ticket F2 — Fetch Metadata On Demand
+
+**Goal:** When a satellite is selected, fetch metadata if not cached.
+
+**Acceptance Criteria**
+
+* Loading state visible
+* Errors handled
+* Cached data reused for repeat clicks
+
+---
+
+### Ticket F3 — Support Low-Resolution Image
+
+**Goal:** Show a thumbnail if the API provides one.
+
+**Acceptance Criteria**
+
+* Image renders when available
+* Missing image does not break layout
+
+---
+
+## Epic G — Performance and Stability
+
+### Ticket G1 — Test 100, 250, 500, 1000 Satellites
+
+**Goal:** Measure rendering and update performance.
+
+**Acceptance Criteria**
+
+* No crashes up to 1000
+* Acceptable responsiveness maintained
+* Findings documented
+
+---
+
+### Ticket G2 — Reduce Visual Clutter
+
+**Goal:** Keep scene readable.
+
+**Acceptance Criteria**
+
+* Orbit track limited to one
+* Glyph sizes tuned
+* Labels not shown by default
+
+---
+
+### Ticket G3 — Failure Handling
+
+**Goal:** App survives bad data and API failures.
+
+**Acceptance Criteria**
+
+* Bad TLE does not crash app
+* Metadata API failure shows fallback text
+* Empty result states handled cleanly
+
+---
+
+## 4. Proposed File Structure
+
+```text
+satellite-visualizer/
+├─ public/
+│  ├─ cesium/
+│  └─ data/
+│     └─ satellites.sample.json
+├─ src/
+│  ├─ app/
+│  │  ├─ App.tsx
+│  │  └─ App.css
+│  ├─ components/
+│  │  ├─ CesiumGlobe.tsx
+│  │  ├─ ControlPanel.tsx
+│  │  ├─ InfoPanel.tsx
+│  │  └─ LoadingOverlay.tsx
+│  ├─ config/
+│  │  ├─ cesium.ts
+│  │  └─ constants.ts
+│  ├─ hooks/
+│  │  ├─ useSatelliteUpdater.ts
+│  │  └─ useCesiumSelection.ts
+│  ├─ services/
+│  │  ├─ satelliteCatalogService.ts
+│  │  ├─ orbitService.ts
+│  │  ├─ metadataService.ts
+│  │  └─ cameraService.ts
+│  ├─ state/
+│  │  └─ appStore.ts
+│  ├─ types/
+│  │  ├─ satellite.ts
+│  │  ├─ metadata.ts
+│  │  └─ view.ts
+│  ├─ utils/
+│  │  ├─ geo.ts
+│  │  ├─ time.ts
+│  │  └─ validators.ts
+│  ├─ main.tsx
+│  └─ vite-env.d.ts
+├─ package.json
+├─ tsconfig.json
+└─ vite.config.ts
+```
+
+---
+
+## 5. Core Type Definitions
+
+## `src/types/satellite.ts`
+
+```ts
+export interface TleRecord {
+  id: string;
+  name: string;
+  line1: string;
+  line2: string;
+  purpose?: string;
+}
+
+export interface SatellitePosition {
+  id: string;
+  name: string;
+  latitudeDeg: number;
+  longitudeDeg: number;
+  altitudeKm: number;
+  speedKps: number;
+}
+
+export interface SelectedSatellite {
+  id: string;
+  name: string;
+}
+```
+
+## `src/types/metadata.ts`
+
+```ts
+export interface SatelliteMetadata {
+  id: string;
+  name: string;
+  altitudeKm?: number;
+  speedKps?: number;
+  purpose?: string;
+  imageUrl?: string;
+  description?: string;
+}
+```
+
+## `src/types/view.ts`
+
+```ts
+export type ViewMode = "orbital" | "earthside";
+```
+
+---
+
+## 6. App State
+
+## `src/state/appStore.ts`
+
+```ts
+import { create } from "zustand";
+import type { SatelliteMetadata } from "../types/metadata";
+import type { SatellitePosition, SelectedSatellite, TleRecord } from "../types/satellite";
+import type { ViewMode } from "../types/view";
+
+interface AppState {
+  viewMode: ViewMode;
+  satelliteLimit: number;
+  tleRecords: TleRecord[];
+  positions: SatellitePosition[];
+  selectedSatellite: SelectedSatellite | null;
+  selectedMetadata: SatelliteMetadata | null;
+  isMetadataLoading: boolean;
+
+  setViewMode: (mode: ViewMode) => void;
+  setSatelliteLimit: (limit: number) => void;
+  setTleRecords: (records: TleRecord[]) => void;
+  setPositions: (positions: SatellitePosition[]) => void;
+  setSelectedSatellite: (satellite: SelectedSatellite | null) => void;
+  setSelectedMetadata: (metadata: SatelliteMetadata | null) => void;
+  setIsMetadataLoading: (loading: boolean) => void;
+}
+
+export const useAppStore = create<AppState>((set) => ({
+  viewMode: "orbital",
+  satelliteLimit: 100,
+  tleRecords: [],
+  positions: [],
+  selectedSatellite: null,
+  selectedMetadata: null,
+  isMetadataLoading: false,
+
+  setViewMode: (viewMode) => set({ viewMode }),
+  setSatelliteLimit: (satelliteLimit) => set({ satelliteLimit }),
+  setTleRecords: (tleRecords) => set({ tleRecords }),
+  setPositions: (positions) => set({ positions }),
+  setSelectedSatellite: (selectedSatellite) => set({ selectedSatellite }),
+  setSelectedMetadata: (selectedMetadata) => set({ selectedMetadata }),
+  setIsMetadataLoading: (isMetadataLoading) => set({ isMetadataLoading }),
+}));
+```
+
+---
+
+## 7. Constants
+
+## `src/config/constants.ts`
+
+```ts
+export const CRESTWOOD_LAT = 38.3267;
+export const CRESTWOOD_LON = -85.4725;
+
+export const DEFAULT_SATELLITE_LIMIT = 100;
+export const MAX_SATELLITE_LIMIT = 1000;
+export const MIN_SATELLITE_LIMIT = 1;
+
+export const POSITION_REFRESH_MS = 60_000;
+```
+
+---
+
+## 8. Orbit Service
+
+## `src/services/orbitService.ts`
+
+```ts
+import * as satellite from "satellite.js";
+import type { TleRecord, SatellitePosition } from "../types/satellite";
+
+function safeDegrees(rad: number): number {
+  return (rad * 180) / Math.PI;
+}
+
+export function computeSatellitePosition(record: TleRecord, now: Date): SatellitePosition | null {
+  try {
+    const satrec = satellite.twoline2satrec(record.line1, record.line2);
+    const pv = satellite.propagate(satrec, now);
+
+    if (!pv.position || !pv.velocity) {
+      return null;
+    }
+
+    const gmst = satellite.gstime(now);
+    const geodetic = satellite.eciToGeodetic(pv.position, gmst);
+
+    const latitudeDeg = safeDegrees(geodetic.latitude);
+    const longitudeDeg = safeDegrees(geodetic.longitude);
+    const altitudeKm = geodetic.height;
+
+    const vx = pv.velocity.x;
+    const vy = pv.velocity.y;
+    const vz = pv.velocity.z;
+    const speedKps = Math.sqrt(vx * vx + vy * vy + vz * vz);
+
+    return {
+      id: record.id,
+      name: record.name,
+      latitudeDeg,
+      longitudeDeg,
+      altitudeKm,
+      speedKps,
+    };
+  } catch (error) {
+    console.warn(`Failed to compute position for satellite ${record.name}`, error);
+    return null;
+  }
+}
+
+export function computeSatellitePositions(records: TleRecord[], now: Date): SatellitePosition[] {
+  return records
+    .map((record) => computeSatellitePosition(record, now))
+    .filter((item): item is SatellitePosition => item !== null);
+}
+```
+
+---
+
+## 9. Catalog Service
+
+## `src/services/satelliteCatalogService.ts`
+
+```ts
+import type { TleRecord } from "../types/satellite";
+
+export async function loadSatelliteCatalog(): Promise<TleRecord[]> {
+  const response = await fetch("/data/satellites.sample.json");
+
+  if (!response.ok) {
+    throw new Error(`Failed to load satellite catalog: ${response.status}`);
+  }
+
+  const data = (await response.json()) as TleRecord[];
+  return data;
+}
+```
+
+---
+
+## 10. Metadata Service
+
+Start with a stub. Do not wire a real API until the rest works.
+
+## `src/services/metadataService.ts`
+
+```ts
+import type { SatelliteMetadata } from "../types/metadata";
+import type { SatellitePosition } from "../types/satellite";
+
+const metadataCache = new Map<string, SatelliteMetadata>();
+
+export async function getSatelliteMetadata(position: SatellitePosition): Promise<SatelliteMetadata> {
+  const cached = metadataCache.get(position.id);
+  if (cached) {
+    return cached;
+  }
+
+  // Stubbed fallback for v1 development.
+  const metadata: SatelliteMetadata = {
+    id: position.id,
+    name: position.name,
+    altitudeKm: Number(position.altitudeKm.toFixed(1)),
+    speedKps: Number(position.speedKps.toFixed(2)),
+    purpose: "Unknown",
+  };
+
+  metadataCache.set(position.id, metadata);
+  return metadata;
+}
+```
+
+---
+
+## 11. Camera Service
+
+## `src/services/cameraService.ts`
+
+```ts
+import * as Cesium from "cesium";
+import { CRESTWOOD_LAT, CRESTWOOD_LON } from "../config/constants";
+
+export function flyToOrbitalView(viewer: Cesium.Viewer): void {
+  viewer.camera.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(-30, 20, 20_000_000),
+    duration: 1.5,
+  });
+}
+
+export function flyToEarthSideObserverView(viewer: Cesium.Viewer): void {
+  viewer.camera.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(CRESTWOOD_LON, CRESTWOOD_LAT, 1_500_000),
+    orientation: {
+      heading: Cesium.Math.toRadians(20),
+      pitch: Cesium.Math.toRadians(-45),
+      roll: 0,
+    },
+    duration: 1.5,
+  });
+}
+```
+
+---
+
+## 12. Update Hook
+
+## `src/hooks/useSatelliteUpdater.ts`
+
+```ts
+import { useEffect } from "react";
+import { POSITION_REFRESH_MS } from "../config/constants";
+import { computeSatellitePositions } from "../services/orbitService";
+import { useAppStore } from "../state/appStore";
+
+export function useSatelliteUpdater(): void {
+  const tleRecords = useAppStore((s) => s.tleRecords);
+  const satelliteLimit = useAppStore((s) => s.satelliteLimit);
+  const setPositions = useAppStore((s) => s.setPositions);
+
+  useEffect(() => {
+    function updateNow(): void {
+      const activeRecords = tleRecords.slice(0, satelliteLimit);
+      const positions = computeSatellitePositions(activeRecords, new Date());
+      setPositions(positions);
+    }
+
+    updateNow();
+    const timer = window.setInterval(updateNow, POSITION_REFRESH_MS);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [tleRecords, satelliteLimit, setPositions]);
+}
+```
+
+---
+
+## 13. Control Panel Component
+
+## `src/components/ControlPanel.tsx`
+
+```tsx
+import { ChangeEvent } from "react";
+import { MAX_SATELLITE_LIMIT, MIN_SATELLITE_LIMIT } from "../config/constants";
+import { useAppStore } from "../state/appStore";
+
+export function ControlPanel(): JSX.Element {
+  const satelliteLimit = useAppStore((s) => s.satelliteLimit);
+  const setSatelliteLimit = useAppStore((s) => s.setSatelliteLimit);
+  const viewMode = useAppStore((s) => s.viewMode);
+  const setViewMode = useAppStore((s) => s.setViewMode);
+
+  function handleLimitChange(event: ChangeEvent<HTMLInputElement>): void {
+    const raw = Number(event.target.value);
+
+    if (Number.isNaN(raw)) {
+      return;
+    }
+
+    const clamped = Math.max(MIN_SATELLITE_LIMIT, Math.min(MAX_SATELLITE_LIMIT, raw));
+    setSatelliteLimit(clamped);
+  }
+
+  return (
+    <div className="control-panel">
+      <label>
+        Satellites:
+        <input
+          type="number"
+          min={MIN_SATELLITE_LIMIT}
+          max={MAX_SATELLITE_LIMIT}
+          value={satelliteLimit}
+          onChange={handleLimitChange}
+        />
+      </label>
+
+      <button
+        type="button"
+        onClick={() => setViewMode("earthside")}
+        disabled={viewMode === "earthside"}
+      >
+        Crestwood View
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setViewMode("orbital")}
+        disabled={viewMode === "orbital"}
+      >
+        Orbital View
+      </button>
+    </div>
+  );
+}
+```
+
+---
+
+## 14. Info Panel Component
+
+## `src/components/InfoPanel.tsx`
+
+```tsx
+import { useAppStore } from "../state/appStore";
+
+export function InfoPanel(): JSX.Element | null {
+  const selectedSatellite = useAppStore((s) => s.selectedSatellite);
+  const metadata = useAppStore((s) => s.selectedMetadata);
+  const isLoading = useAppStore((s) => s.isMetadataLoading);
+
+  if (!selectedSatellite) {
+    return null;
+  }
+
+  return (
+    <aside className="info-panel">
+      <h2>{selectedSatellite.name}</h2>
+
+      {isLoading && <p>Loading satellite metadata...</p>}
+
+      {!isLoading && metadata && (
+        <>
+          <p><strong>Altitude:</strong> {metadata.altitudeKm ?? "Unknown"} km</p>
+          <p><strong>Speed:</strong> {metadata.speedKps ?? "Unknown"} km/s</p>
+          <p><strong>Purpose:</strong> {metadata.purpose ?? "Unknown"}</p>
+
+          {metadata.imageUrl && (
+            <img src={metadata.imageUrl} alt={metadata.name} />
+          )}
+        </>
+      )}
+    </aside>
+  );
+}
+```
+
+---
+
+## 15. Cesium Globe Component
+
+This is the core. Keep it clean.
+
+## `src/components/CesiumGlobe.tsx`
+
+```tsx
+import { useEffect, useRef } from "react";
+import * as Cesium from "cesium";
+import { flyToEarthSideObserverView, flyToOrbitalView } from "../services/cameraService";
+import { getSatelliteMetadata } from "../services/metadataService";
+import { useAppStore } from "../state/appStore";
+
+export function CesiumGlobe(): JSX.Element {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const viewerRef = useRef<Cesium.Viewer | null>(null);
+  const orbitEntityRef = useRef<Cesium.Entity | null>(null);
+
+  const positions = useAppStore((s) => s.positions);
+  const viewMode = useAppStore((s) => s.viewMode);
+  const setSelectedSatellite = useAppStore((s) => s.setSelectedSatellite);
+  const setSelectedMetadata = useAppStore((s) => s.setSelectedMetadata);
+  const setIsMetadataLoading = useAppStore((s) => s.setIsMetadataLoading);
+
+  useEffect(() => {
+    if (!containerRef.current || viewerRef.current) {
+      return;
+    }
+
+    const viewer = new Cesium.Viewer(containerRef.current, {
+      timeline: false,
+      animation: false,
+      baseLayerPicker: false,
+      geocoder: false,
+      homeButton: false,
+      sceneModePicker: false,
+      navigationHelpButton: false,
+      infoBox: false,
+      selectionIndicator: false,
+    });
+
+    viewer.scene.globe.enableLighting = true;
+    viewerRef.current = viewer;
+    flyToOrbitalView(viewer);
+
+    const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+    handler.setInputAction(async (click: Cesium.ScreenSpaceEventHandler.PositionedEvent) => {
+      const picked = viewer.scene.pick(click.position);
+
+      if (!Cesium.defined(picked) || !(picked as any).id) {
+        return;
+      }
+
+      const entity = (picked as any).id as Cesium.Entity;
+      const satId = entity.properties?.getValue(Cesium.JulianDate.now())?.satelliteId;
+      const satName = entity.properties?.getValue(Cesium.JulianDate.now())?.satelliteName;
+
+      if (!satId || !satName) {
+        return;
+      }
+
+      setSelectedSatellite({ id: satId, name: satName });
+
+      const matched = positions.find((p) => p.id === satId);
+      if (!matched) {
+        return;
+      }
+
+      setIsMetadataLoading(true);
+      const metadata = await getSatelliteMetadata(matched);
+      setSelectedMetadata(metadata);
+      setIsMetadataLoading(false);
+
+      if (orbitEntityRef.current) {
+        viewer.entities.remove(orbitEntityRef.current);
+        orbitEntityRef.current = null;
+      }
+
+      orbitEntityRef.current = viewer.entities.add({
+        polyline: {
+          positions: buildSimpleOrbitPolyline(matched.longitudeDeg, matched.latitudeDeg, matched.altitudeKm),
+          width: 2,
+          material: Cesium.Color.YELLOW,
+        },
+      });
+    }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+    return () => {
+      handler.destroy();
+      viewer.destroy();
+      viewerRef.current = null;
+    };
+  }, [positions, setSelectedMetadata, setSelectedSatellite, setIsMetadataLoading]);
+
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) {
+      return;
+    }
+
+    viewer.entities.removeAll();
+
+    for (const sat of positions) {
+      viewer.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(sat.longitudeDeg, sat.latitudeDeg, sat.altitudeKm * 1000),
+        point: {
+          pixelSize: 6,
+          color: Cesium.Color.CYAN,
+        },
+        properties: {
+          satelliteId: sat.id,
+          satelliteName: sat.name,
+        },
+      });
+    }
+  }, [positions]);
+
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) {
+      return;
+    }
+
+    if (viewMode === "earthside") {
+      flyToEarthSideObserverView(viewer);
+    } else {
+      flyToOrbitalView(viewer);
+    }
+  }, [viewMode]);
+
+  return <div ref={containerRef} className="cesium-container" />;
+}
+
+function buildSimpleOrbitPolyline(longitudeDeg: number, latitudeDeg: number, altitudeKm: number): Cesium.Cartesian3[] {
+  const points: Cesium.Cartesian3[] = [];
+
+  for (let i = 0; i <= 180; i += 5) {
+    const lon = ((longitudeDeg + i * 2) % 360) - 180;
+    const lat = latitudeDeg;
+    points.push(Cesium.Cartesian3.fromDegrees(lon, lat, altitudeKm * 1000));
+  }
+
+  return points;
+}
+```
+
+### Important note
+
+That orbit track function is a placeholder. It is **not** a true propagated orbit path. Good enough for scaffolding, not for final. Replace it later with sampled propagation points over time.
+
+---
+
+## 16. App Component
+
+## `src/app/App.tsx`
+
+```tsx
+import { useEffect } from "react";
+import { CesiumGlobe } from "../components/CesiumGlobe";
+import { ControlPanel } from "../components/ControlPanel";
+import { InfoPanel } from "../components/InfoPanel";
+import { loadSatelliteCatalog } from "../services/satelliteCatalogService";
+import { useAppStore } from "../state/appStore";
+import { useSatelliteUpdater } from "../hooks/useSatelliteUpdater";
+import "./App.css";
+
+export default function App(): JSX.Element {
+  const setTleRecords = useAppStore((s) => s.setTleRecords);
+
+  useSatelliteUpdater();
+
+  useEffect(() => {
+    async function load(): Promise<void> {
+      const records = await loadSatelliteCatalog();
+      setTleRecords(records);
+    }
+
+    void load();
+  }, [setTleRecords]);
+
+  return (
+    <div className="app-shell">
+      <CesiumGlobe />
+      <ControlPanel />
+      <InfoPanel />
+    </div>
+  );
+}
+```
+
+---
+
+## 17. Minimal Styling
+
+## `src/app/App.css`
+
+```css
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: Arial, sans-serif;
+}
+
+.app-shell {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.cesium-container {
+  width: 100%;
+  height: 100%;
+}
+
+.control-panel {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: rgba(20, 20, 20, 0.85);
+  color: white;
+  padding: 12px;
+  border-radius: 8px;
+  z-index: 10;
+}
+
+.info-panel {
+  position: absolute;
+  top: 70px;
+  right: 16px;
+  width: 280px;
+  background: rgba(20, 20, 20, 0.9);
+  color: white;
+  padding: 16px;
+  border-radius: 8px;
+  z-index: 10;
+}
+
+.info-panel img {
+  width: 100%;
+  height: auto;
+  margin-top: 8px;
+  border-radius: 4px;
+}
+```
+
+---
+
+## 18. Sample Data Format
+
+## `public/data/satellites.sample.json`
+
+```json
+[
+  {
+    "id": "iss",
+    "name": "ISS (ZARYA)",
+    "line1": "1 25544U 98067A   26088.50000000  .00016717  00000+0  10270-3 0  9993",
+    "line2": "2 25544  51.6403 120.1234 0006703 130.5360 325.0288 15.50012345678901",
+    "purpose": "Space Station"
+  },
+  {
+    "id": "hubble",
+    "name": "HUBBLE SPACE TELESCOPE",
+    "line1": "1 20580U 90037B   26088.50000000  .00000812  00000+0  31200-4 0  9997",
+    "line2": "2 20580  28.4699 241.1234 0002814  65.1234 294.9876 15.09212345678902",
+    "purpose": "Space Telescope"
+  }
+]
+```
+
+Use real TLEs later. These are just placeholders structurally.
+
+---
+
+## 19. What to Improve After the Scaffold Works
+
+In order:
+
+### Replace fake orbit track generation
+
+Build a proper orbit line by propagating the selected satellite across a time window such as:
+
+* now minus 45 minutes
+* now plus 45 minutes
+* sample every 60 seconds
+
+### Add entity diffing instead of remove-all/recreate-all
+
+The current scaffold wipes and recreates satellite entities. That is fine for early development but sloppy. For larger sets, update existing entities in place.
+
+### Add metadata API integration
+
+Once the UI is stable, wire in a real catalog source.
+
+### Add filtering
+
+Examples:
+
+* communications
+* navigation
+* science
+* crewed
+* Starlink only
+
+### Add a label toggle
+
+Default off. Labels for hundreds of satellites will look awful.
+
+---
+
+## 20. Likely Engineering Traps
+
+### Trap 1 — Trying to make it scientifically perfect
+
+Bad idea. Your stated goal is visual and informative. Stay there.
+
+### Trap 2 — Pulling live metadata for every satellite at startup
+
+Also bad. That will slow the app for no gain. Load details on click.
+
+### Trap 3 — Showing too much text in the globe
+
+That turns into clutter immediately.
+
+### Trap 4 — Reaching for GPU compute
+
+Completely unnecessary at this scale.
+
+### Trap 5 — Starting with 1000 satellites before the architecture is stable
+
+Start with 25, then 100, then 250.
+
+---
+
+## 21. Suggested Prompt for Copilot / Claude
+
+Use this almost verbatim:
+
+```text
+Build a React + TypeScript + Vite application that uses CesiumJS to display Earth and render orbiting satellites as clickable glyphs.
+
+Requirements:
+- Use a local JSON file containing TLE records
+- Use satellite.js to compute satellite positions
+- Support a numeric input textbox controlling rendered satellite count
+- Clamp count between 1 and 1000
+- Provide two view modes:
+  1. Orbital view
+  2. Earth-side observer view near Crestwood, Kentucky
+- Render only one selected orbit track at a time
+- Clicking a satellite opens an info panel with name, altitude, speed, and purpose
+- Refresh positions every 60 seconds
+- Use Zustand for state management
+- Keep code modular with separate services, hooks, state, and components
+- Start with a clean file structure and production-quality TypeScript types
+- Do not implement scientific-grade precision; favor clarity and responsiveness
+```
+
+---
+
+## 22. Final Recommendation
+
+You have enough here to start coding immediately.
+
+The practical next move is:
+
+1. scaffold the Vite app
+2. get Cesium rendering
+3. load 2–10 sample satellites
+4. click one and show a fake orbit line
+5. only then expand
+
+If you want, I can generate the **actual initial Vite project files as a single contiguous markdown code bundle** next.

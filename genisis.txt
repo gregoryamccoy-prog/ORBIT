@@ -1,0 +1,13 @@
+I am interested in creating a program that can create a view of the major sattelites in orbit around Earth.  No more than a hundred but configurable with a textbox that acecpts a number.  No more than 1000 due to computationl speed.  Use an avaiable GPU is available.  
+
+Accurate orbits are not necessary.  I don't precision or second-by-second accuracy.  I am just looking for an informative visuai treat.
+
+The view should be switch able between a view frm a location on the ground (Crestwood ky) or a view from away from the Earth looking tworaed the earth.
+
+Sattelites should be represented with a colored glyph.  If I click on the glyph it will show a box with basic information about the sattelite (name, altitude, speed, purpose, if available a low-res picture).  That informnation can be retrieved by API call as necessary.
+
+If I click on the sattelite, it shouls how the orbit track.  Clicking it again or choosing another sattelite, the track will disappear so we do not clutter up the screen.
+
+If we view frm orbit I would like a picture of the earth below, accurately lit as current solar geometry and sunposition dicate.  A reasonable view of earth landmasses and oceans should be visible.
+
+The sattelit positiopns should update every minute. 

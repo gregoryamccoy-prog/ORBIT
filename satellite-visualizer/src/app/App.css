@@ -1,0 +1,295 @@
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: Arial, sans-serif;
+  background: #000;
+}
+
+.app-shell {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.cesium-container {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Control Panel ─────────────────────────────────────── */
+.control-panel {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(10, 14, 22, 0.88);
+  color: #e0e8ff;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(100, 160, 255, 0.25);
+  z-index: 10;
+  backdrop-filter: blur(6px);
+  max-width: calc(100vw - 300px);
+}
+
+.panel-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter-row {
+  gap: 5px;
+}
+
+.panel-divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(100, 160, 255, 0.2);
+  flex-shrink: 0;
+}
+
+.panel-title {
+  font-weight: bold;
+  font-size: 15px;
+  letter-spacing: 3px;
+  color: #7eb8ff;
+  margin-right: 4px;
+}
+
+.count-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.count-label input[type="number"] {
+  width: 64px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(100, 160, 255, 0.4);
+  border-radius: 4px;
+  color: #e0e8ff;
+  padding: 3px 6px;
+  font-size: 13px;
+}
+
+.catalog-count {
+  font-size: 11px;
+  color: #6888aa;
+  white-space: nowrap;
+}
+
+.control-panel button {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(100, 160, 255, 0.35);
+  border-radius: 5px;
+  color: #c0d8ff;
+  padding: 4px 11px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.control-panel button:hover {
+  background: rgba(100, 160, 255, 0.2);
+}
+
+.control-panel button.active {
+  background: rgba(80, 140, 255, 0.35);
+  border-color: #6ab0ff;
+  color: #fff;
+}
+
+/* ── Info Panel ────────────────────────────────────────── */
+.info-panel {
+  position: absolute;
+  top: 70px;
+  right: 16px;
+  width: 260px;
+  background: rgba(10, 14, 22, 0.9);
+  color: #e0e8ff;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(100, 160, 255, 0.25);
+  z-index: 10;
+  backdrop-filter: blur(6px);
+}
+
+.info-panel h2 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: #7eb8ff;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.info-panel dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  font-size: 13px;
+}
+
+.info-panel dt {
+  color: #8898b8;
+  white-space: nowrap;
+}
+
+.info-panel dd {
+  margin: 0;
+  color: #ddeeff;
+}
+
+.sat-image {
+  width: 100%;
+  height: auto;
+  margin-top: 12px;
+  border-radius: 4px;
+  border: 1px solid rgba(100, 160, 255, 0.2);
+}
+
+.loading-text {
+  font-size: 12px;
+  color: #8898b8;
+  margin: 0;
+}
+
+.panel-hint {
+  font-size: 11px;
+  color: #556070;
+  margin: 12px 0 0;
+}
+
+/* ── Legend (shown when nothing selected) ───────────────── */
+.legend-only {
+  padding: 12px 14px;
+}
+
+.legend-title {
+  font-size: 11px;
+  color: #6888aa;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 8px;
+}
+
+.legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: #b0c8e8;
+}
+
+.legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Loading Overlay ───────────────────────────────────── */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 4, 18, 0.75);
+  z-index: 20;
+  color: #a0c0ff;
+  gap: 16px;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+.loading-spinner {
+  width: 44px;
+  height: 44px;
+  border: 3px solid rgba(100, 160, 255, 0.15);
+  border-top-color: #6ab0ff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Satellite hover tooltip ─────────────────────────────── */
+.sat-tooltip {
+  position: absolute;
+  display: none;
+  pointer-events: none;
+  background: rgba(10, 14, 22, 0.9);
+  color: #c8e0ff;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(100, 160, 255, 0.3);
+  white-space: nowrap;
+  z-index: 15;
+  backdrop-filter: blur(4px);
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Satellite name search ───────────────────────────────── */
+.name-search {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(100, 160, 255, 0.35);
+  border-radius: 5px;
+  color: #e0e8ff;
+  padding: 3px 8px;
+  font-size: 12px;
+  width: 110px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.name-search:focus {
+  border-color: #6ab0ff;
+  background: rgba(100, 160, 255, 0.1);
+}
+
+.name-search::placeholder {
+  color: #556070;
+}
+
+/* Remove default search cancel button styling in webkit */
+.name-search::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  width: 12px;
+  height: 12px;
+  background: rgba(100, 160, 255, 0.4);
+  border-radius: 50%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1 1l8 8M9 1l-8 8' stroke='%23c8e0ff' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-size: 8px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
