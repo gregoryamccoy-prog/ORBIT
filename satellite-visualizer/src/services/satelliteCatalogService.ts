@@ -1,4 +1,5 @@
 import type { TleRecord } from "../types/satellite";
+import { saveCatalog, loadCatalog } from "./tleStore";
 
 // CelesTrak removed legacy .txt files in Dec 2024.
 // Correct API: https://celestrak.org/NORAD/elements/gp.php?GROUP=<name>&FORMAT=TLE
@@ -148,9 +149,20 @@ export async function loadSatelliteCatalog(): Promise<TleRecord[]> {
     const records = await loadLiveCatalog();
     const capped = records.slice(0, CATALOG_SIZE);
     console.info(`Loaded ${capped.length} satellites from CelesTrak (capped at ${CATALOG_SIZE})`);
+    // Persist to IndexedDB so we survive future rate-limits or session resets
+    saveCatalog(capped);
     return capped;
   } catch (liveErr) {
-    console.warn("CelesTrak unavailable, falling back to local catalog:", liveErr);
+    console.warn("CelesTrak unavailable, trying IndexedDB catalog:", liveErr);
+
+    const stored = await loadCatalog();
+    if (stored && stored.records.length > 25) {
+      const ageMin = Math.round((Date.now() - stored.timestamp) / 60_000);
+      console.info(`Using IndexedDB catalog: ${stored.records.length} satellites (${ageMin}m old)`);
+      return stored.records;
+    }
+
+    console.warn("No usable IndexedDB catalog, falling back to sample data");
     return loadLocalCatalog();
   }
 }
