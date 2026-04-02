@@ -1,3 +1,4 @@
+import type { CategoryFilter } from "../state/appStore";
 import type { TleRecord } from "../types/satellite";
 import { saveCatalog, loadCatalog } from "./tleStore";
 
@@ -5,24 +6,37 @@ import { saveCatalog, loadCatalog } from "./tleStore";
 // Correct API: https://celestrak.org/NORAD/elements/gp.php?GROUP=<name>&FORMAT=TLE
 // Rate limit: one download per 2-hour update cycle per GROUP.
 // We cache each group in localStorage with a 2-hour TTL to respect that limit.
-//
-// Primary source: "active" group (~5000 sats, all active objects, single request).
-// Fallback groups used only when "active" is rate-limited or unavailable.
 
 const BASE = "https://celestrak.org/NORAD/elements/gp.php";
 const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
 const FETCH_TIMEOUT_MS = 30_000; // 30s — active group is a large file
 
-// Ordered by coverage: active alone should give 5000+ sats.
-const CELESTRAK_GROUPS: { group: string; purpose: string }[] = [
-  { group: "active",     purpose: "" },          // ~5000 active sats — primary
-  { group: "starlink",   purpose: "Communications (Starlink)" },
-  { group: "visual",     purpose: "" },
-  { group: "stations",   purpose: "Space Station" },
-  { group: "weather",    purpose: "Weather" },
-  { group: "science",    purpose: "Science" },
-  { group: "GPS-OPS",    purpose: "Navigation" },
-];
+// All known groups (used for cache-clearing).
+const ALL_GROUPS = ["active", "starlink", "stations", "weather", "science", "GPS-OPS", "glo-ops", "galileo", "beidou-2"];
+
+// Maps each UI category to the CelesTrak group(s) to fetch. Categories that have
+// no dedicated group fall back to "active" and are post-filtered by name pattern.
+const CATEGORY_SOURCE: Record<CategoryFilter, { groups: string[]; nameFilter?: RegExp }> = {
+  all:        { groups: ["active"] },
+  crewed:     { groups: ["stations"] },
+  weather:    { groups: ["weather"] },
+  navigation: { groups: ["GPS-OPS", "glo-ops", "galileo", "beidou-2"] },
+  starlink:   { groups: ["starlink"] },
+  earthobs:   { groups: ["active"], nameFilter: /SENTINEL|LANDSAT|TERRA|AQUA|SUOMI|SPOT|WORLDVIEW|PLEIADES/i },
+  science:    { groups: ["science"] },
+  comms:      { groups: ["active"], nameFilter: /IRIDIUM|INTELSAT|SES|ARABSAT|ASTRA|ONEWEB/i },
+};
+
+// Patterns used when falling back to IndexedDB for a category with no live data.
+const CATEGORY_FALLBACK_PATTERN: Partial<Record<CategoryFilter, RegExp>> = {
+  crewed:     /ISS|TIANHE|SHENZHOU|CYGNUS|DRAGON|PROGRESS/i,
+  weather:    /NOAA|GOES|METEOSAT|HIMAWARI|MSG|FENGYUN/i,
+  navigation: /GPS|NAVSTAR|GLONASS|GALILEO|BEIDOU|COMPASS/i,
+  starlink:   /STARLINK/i,
+  earthobs:   /SENTINEL|LANDSAT|TERRA|AQUA|SUOMI|SPOT|WORLDVIEW|PLEIADES/i,
+  science:    /HUBBLE|WEBB|CHANDRA|XMM|FERMI|GRACE|SWOT|SMAP|AURA|CLOUDSAT|CALIPSO/i,
+  comms:      /IRIDIUM|INTELSAT|SES|ARABSAT|ASTRA|ONEWEB/i,
+};
 
 function inferPurpose(name: string): string {
   const n = name.toUpperCase();
@@ -102,30 +116,6 @@ async function fetchCelestrakGroup(group: string, purpose: string): Promise<TleR
   return parseTleText(text, purpose);
 }
 
-async function loadLiveCatalog(): Promise<TleRecord[]> {
-  const merged = new Map<string, TleRecord>();
-
-  for (const { group, purpose } of CELESTRAK_GROUPS) {
-    try {
-      const records = await fetchCelestrakGroup(group, purpose);
-      for (const rec of records) {
-        merged.set(rec.id, rec);
-      }
-      // "active" alone covers all ~5000 active sats — no need to fetch more groups
-      if (group === "active" && merged.size >= CATALOG_SIZE) break;
-    } catch (err) {
-      console.warn(`CelesTrak group "${group}" failed:`, err);
-    }
-    if (merged.size >= CATALOG_SIZE) break;
-  }
-
-  if (merged.size === 0) {
-    throw new Error("All CelesTrak groups failed");
-  }
-
-  return Array.from(merged.values());
-}
-
 async function loadLocalCatalog(): Promise<TleRecord[]> {
   const response = await fetch("/data/satellites.sample.json");
   if (!response.ok) {
@@ -134,32 +124,66 @@ async function loadLocalCatalog(): Promise<TleRecord[]> {
   return (await response.json()) as TleRecord[];
 }
 
-const CATALOG_SIZE = 2000;
-
-/** Call this to force a fresh download on next loadSatelliteCatalog() call. */
+/** Call this to force a fresh download on next loadCatalogForCategory() call. */
 export function clearCatalogCache(): void {
-  for (const { group } of CELESTRAK_GROUPS) {
+  for (const group of ALL_GROUPS) {
     localStorage.removeItem(`tle_cache_${group}`);
     localStorage.removeItem(`tle_cache_ts_${group}`);
   }
 }
 
-export async function loadSatelliteCatalog(): Promise<TleRecord[]> {
+/**
+ * Load the satellite catalog for a given category.
+ * Each category maps to dedicated CelesTrak group(s) so the result contains
+ * ALL satellites in that category, not a filtered slice of a larger list.
+ * Results are served from the 2-hour localStorage cache when available.
+ * Falls back to the IndexedDB catalog (filtered by pattern) if CelesTrak fails.
+ */
+export async function loadCatalogForCategory(category: CategoryFilter): Promise<TleRecord[]> {
+  const { groups, nameFilter } = CATEGORY_SOURCE[category];
+
   try {
-    const records = await loadLiveCatalog();
-    const capped = records.slice(0, CATALOG_SIZE);
-    console.info(`Loaded ${capped.length} satellites from CelesTrak (capped at ${CATALOG_SIZE})`);
-    // Persist to IndexedDB so we survive future rate-limits or session resets
-    saveCatalog(capped);
-    return capped;
+    const merged = new Map<string, TleRecord>();
+    for (const group of groups) {
+      try {
+        const records = await fetchCelestrakGroup(group, "");
+        for (const rec of records) {
+          merged.set(rec.id, rec);
+        }
+      } catch (err) {
+        console.warn(`CelesTrak group "${group}" failed:`, err);
+      }
+    }
+
+    if (merged.size === 0) {
+      throw new Error(`All CelesTrak groups failed for category "${category}"`);
+    }
+
+    let records = Array.from(merged.values());
+    if (nameFilter) {
+      records = records.filter((r) => nameFilter.test(r.name));
+    }
+
+    console.info(`Loaded ${records.length} satellites for category "${category}"`);
+
+    // Persist the full "all" catalog to IndexedDB for offline fallback.
+    if (category === "all") {
+      saveCatalog(records);
+    }
+
+    return records;
   } catch (liveErr) {
-    console.warn("CelesTrak unavailable, trying IndexedDB catalog:", liveErr);
+    console.warn(`CelesTrak unavailable for category "${category}", using IndexedDB fallback:`, liveErr);
 
     const stored = await loadCatalog();
     if (stored && stored.records.length > 25) {
       const ageMin = Math.round((Date.now() - stored.timestamp) / 60_000);
-      console.info(`Using IndexedDB catalog: ${stored.records.length} satellites (${ageMin}m old)`);
-      return stored.records;
+      const pattern = CATEGORY_FALLBACK_PATTERN[category];
+      const records = pattern
+        ? stored.records.filter((r) => pattern.test(r.name))
+        : stored.records;
+      console.info(`Using IndexedDB fallback: ${records.length} satellites for "${category}" (${ageMin}m old)`);
+      return records;
     }
 
     console.warn("No usable IndexedDB catalog, falling back to sample data");

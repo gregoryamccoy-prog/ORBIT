@@ -1,7 +1,7 @@
 # ORBIT — Satellite Visualizer
 
 Real-time 3D satellite tracking on a CesiumJS globe.  
-Loads up to **2,000 live satellites** from CelesTrak, propagates their orbits using SGP4, and renders them on an interactive Earth with category colors, click-to-inspect metadata, live Wikipedia images, and an orbit track.
+Loads the **full live satellite catalog** from CelesTrak (category-aware), propagates their orbits using SGP4, and renders them on an interactive Earth with category colors, click-to-inspect metadata, live Wikipedia images, and an orbit track.
 
 ---
 
@@ -76,18 +76,20 @@ The main view is a 3D Earth rendered by CesiumJS with:
 
 ### Category Filter Buttons (second row)
 
-| Button | Satellites shown |
-|---|---|
-| **All** | Everything in catalog |
-| **Crewed** | ISS, Tianhe, Shenzhou, Dragon, Cygnus, Progress |
-| **Weather** | NOAA, GOES, Meteosat, Himawari, Fengyun |
-| **Nav** | GPS, GLONASS, Galileo, BeiDou |
-| **Starlink** | All SpaceX Starlink constellation |
-| **Earth Obs** | Sentinel, Landsat, Terra, Aqua, Suomi NPP, Spot |
-| **Science** | Hubble, JWST, Chandra, XMM, Fermi, GRACE, SWOT |
-| **Comms** | Iridium, Intelsat, SES, OneWeb |
+Each button triggers a **fresh catalog load** from the dedicated CelesTrak group for that category, so you always see every satellite in that class — not just the subset that happened to appear in a larger mixed download.
 
-Filters combine: the name search applies **within** the active category filter.
+| Button | CelesTrak source | Satellites shown |
+|---|---|---|
+| **All** | `active` group | All currently active tracked objects (~6,000+) |
+| **Crewed** | `stations` group | ISS, Tianhe, Shenzhou, Dragon, Cygnus, Progress |
+| **Weather** | `weather` group | NOAA, GOES, Meteosat, Himawari, Fengyun |
+| **Nav** | `GPS-OPS` + `glo-ops` + `galileo` + `beidou-2` groups | Full GPS, GLONASS, Galileo, BeiDou constellations |
+| **Starlink** | `starlink` group | All SpaceX Starlink satellites |
+| **Earth Obs** | `active` (name-filtered) | Sentinel, Landsat, Terra, Aqua, Suomi NPP, Spot |
+| **Science** | `science` group | Hubble, JWST, Chandra, XMM, Fermi, GRACE, SWOT |
+| **Comms** | `active` (name-filtered) | Iridium, Intelsat, SES, OneWeb |
+
+Filters combine: the name search applies **within** the active category's loaded set.
 
 ### Satellite Colors
 
@@ -165,29 +167,34 @@ When a satellite is selected, `computeOrbitTrack()` samples SGP4 at 2-minute int
 ## Data Pipeline
 
 ```
-CelesTrak API
-   └─ gp.php?GROUP=active&FORMAT=TLE   (~5,000 TLEs, one request)
+User selects a category filter (or app loads with "all")
          │
          ▼
-   fetchCelestrakGroup()
-    • Checks localStorage first (2-hour TTL)
+   loadCatalogForCategory(category)
+    • Looks up the CelesTrak group(s) for that category
+    • For each group: calls fetchCelestrakGroup()
+         │
+         ▼
+   fetchCelestrakGroup(group)
+    • Checks localStorage first (2-hour TTL per group)
     • Validates response is TLE text (not HTML rate-limit page)
     • Stores raw TLE text to localStorage on success
          │
          ▼
    parseTleText()
     • Splits into 3-line groups (name + line1 + line2)
-    • Infers purpose from name if group has no default
+    • Infers purpose from satellite name
     • Returns TleRecord[]
          │
          ▼
-   loadSatelliteCatalog()   (capped at 2,000)
-    • Saves full catalog to IndexedDB (long-lived persistent fallback)
+   Merges groups (dedup by NORAD ID)
+    • Applies optional name-pattern filter for categories without
+      a dedicated group (earthobs, comms)
+    • Saves "all" result to IndexedDB (long-lived offline fallback)
     • Sets catalog in Zustand store
          │
          ▼
    useSatelliteUpdater (every 60s)
-    • Applies category filter
     • Applies name search filter
     • Slices to satelliteLimit
     • Runs SGP4 on each → SatellitePosition[]
@@ -205,7 +212,8 @@ CelesTrak API
 If CelesTrak is unavailable (rate-limited, network error, timeout):
 
 ```
-1. IndexedDB  —  last successfully fetched catalog (any age, any size > 25)
+1. IndexedDB  —  last successfully fetched "all" catalog, filtered by name
+                 pattern to match the requested category (any age, size > 25)
 2. /public/data/satellites.sample.json  —  25 hardcoded reference satellites
 ```
 
@@ -243,10 +251,10 @@ satellite-visualizer/
 │   │   └── constants.ts              CATALOG_SIZE=2000, MAX_SATELLITE_LIMIT=2000, refresh rate, home coords
 │   │
 │   ├── hooks/
-│   │   └── useSatelliteUpdater.ts    60s interval — filters catalog → SGP4 → writes positions + renderedIds
+│   │   └── useSatelliteUpdater.ts    60s interval — applies name search, slices to limit, SGP4 → positions
 │   │
 │   ├── services/
-│   │   ├── satelliteCatalogService.ts  CelesTrak fetch, localStorage TLE cache, 6-group fallback chain
+│   │   ├── satelliteCatalogService.ts  Per-category CelesTrak fetch, localStorage TLE cache, IndexedDB fallback
 │   │   ├── tleStore.ts                 IndexedDB persistence — saveCatalog() / loadCatalog()
 │   │   ├── metadataService.ts          SATCAT CSV enrichment, image lookup, Wikipedia fallback
 │   │   ├── orbitService.ts             SGP4 wrappers — computeSatellitePosition, computeOrbitTrack
@@ -304,7 +312,7 @@ interface SatelliteMetadata {
 
 | Field | Type | Description |
 |---|---|---|
-| `catalog` | `TleRecord[]` | Full loaded catalog (up to 2,000), immutable after load |
+| `catalog` | `TleRecord[]` | Catalog for the active category — reloaded on category change |
 | `renderedIds` | `Set<string>` | NORAD IDs of satellites currently propagated and drawn |
 | `positions` | `SatellitePosition[]` | Current propagated positions (updated every 60s) |
 | `satelliteLimit` | `number` | How many to render (UI slider, 1–2,000) |
@@ -325,7 +333,6 @@ interface SatelliteMetadata {
 
 | Constant | Default | Description |
 |---|---|---|
-| `CATALOG_SIZE` | `2000` | Max satellites loaded into catalog |
 | `MAX_SATELLITE_LIMIT` | `2000` | Max value of the "Show" input |
 | `MIN_SATELLITE_LIMIT` | `1` | Min value of the "Show" input |
 | `DEFAULT_SATELLITE_LIMIT` | `100` | Initial value on first load |
@@ -335,17 +342,18 @@ interface SatelliteMetadata {
 
 ### CelesTrak Groups (in `satelliteCatalogService.ts`)
 
-Groups are fetched in order; fetching stops once the catalog reaches 2,000 entries:
+Each category maps to one or more dedicated groups. Groups are cached individually in localStorage for 2 hours, so switching categories after first load is instant.
 
-| Priority | Group | ~Count | Notes |
-|---|---|---|---|
-| 1 (primary) | `active` | ~5,000 | All active tracked objects — used alone in normal operation |
-| 2 | `starlink` | ~6,000 | Fallback if `active` is rate-limited |
-| 3 | `visual` | ~150 | Naked-eye visible objects |
-| 4 | `stations` | ~10 | Space stations |
-| 5 | `weather` | ~100 | Weather satellites |
-| 6 | `science` | ~50 | Science missions |
-| 7 | `GPS-OPS` | ~30 | Operational GPS constellation |
+| Category | Groups fetched | Post-filter |
+|---|---|---|
+| `all` | `active` | none |
+| `crewed` | `stations` | none |
+| `weather` | `weather` | none |
+| `navigation` | `GPS-OPS`, `glo-ops`, `galileo`, `beidou-2` | none |
+| `starlink` | `starlink` | none |
+| `earthobs` | `active` | name regex |
+| `science` | `science` | none |
+| `comms` | `active` | name regex |
 
 ### Cache Strategy
 
@@ -359,11 +367,11 @@ Groups are fetched in order; fetching stops once the catalog reaches 2,000 entri
 ### Clearing the cache (browser console)
 
 ```js
-// Force fresh CelesTrak download on next load:
-localStorage.clear();
-
-// Or just the TLE groups:
+// Force fresh CelesTrak download for all groups on next load:
 clearCatalogCache();   // exported from satelliteCatalogService
+
+// Or clear everything:
+localStorage.clear();
 ```
 
 ---
@@ -374,10 +382,10 @@ clearCatalogCache();   // exported from satelliteCatalogService
 
 The catalog fell back to `satellites.sample.json`. Possible causes:
 - CelesTrak is rate-limiting (you fetched within the last 2 hours from the same IP)
-- The `active` group TLE download timed out (30s limit — slow connection)
+- The TLE download timed out (30s limit — slow connection)
 - IndexedDB is empty (first run on a new browser profile)
 
-**Fix:** Wait 2 hours and reload, or open DevTools → Application → Storage → Clear site data, then reload on a faster connection.
+**Fix:** Wait 2 hours and reload, or run `clearCatalogCache()` in the browser console then reload. On a slow connection, try a wired/faster network for the initial fetch.
 
 ### Satellites not moving
 
